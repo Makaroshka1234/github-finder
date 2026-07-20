@@ -22,10 +22,10 @@ export function TypeSelector() {
         id="type-select"
         value={searchType}
         onChange={handleTypeChange}
-        className="w-full md:w-48 border-2 border-gray-300 rounded-lg px-4 py-2 bg-white cursor-pointer focus:outline-none focus:border-blue-500 transition-colors duration-200"
+        className="w-full md:w-48 border-2 border-gray-300 rounded-lg px-4 py-2 bg-white text-gray-900 cursor-pointer focus:outline-none focus:border-blue-500 transition-colors duration-200"
       >
-        <option value="user">User</option>
-        <option value="repo">Repository</option>
+        <option value="user" className="text-gray-900">User</option>
+        <option value="repo" className="text-gray-900">Repository</option>
       </select>
     </div>
   );

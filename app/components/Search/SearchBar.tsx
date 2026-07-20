@@ -17,7 +17,7 @@ export function SearchBar() {
 
   return (
     <div className="relative w-full">
-      <span className="absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400">
+      <span className="absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none text-gray-600">
         🔍
       </span>
 
@@ -26,7 +26,7 @@ export function SearchBar() {
         value={query}
         onChange={(e) => setQuery(e.target.value)}
         placeholder="Search GitHub..."
-        className="w-full py-3 px-12 text-lg border-2 border-gray-300 rounded-lg focus:outline-none focus:border-blue-500 transition-colors duration-200"
+        className="w-full py-3 px-12 text-lg text-gray-900 border-2 border-gray-500 rounded-lg placeholder-gray-600 focus:outline-none focus:border-blue-500 transition-colors duration-200"
       />
 
       {query && (
