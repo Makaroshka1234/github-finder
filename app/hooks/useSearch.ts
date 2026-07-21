@@ -2,13 +2,15 @@
 
 import { useCallback, useEffect, useRef } from 'react';
 import { debounce } from 'lodash';
+import { useSearchStore } from '@/app/store/searchStore';
 import { useStoreActions } from './useStoreActions';
 import { SEARCH_CONFIG } from '@/app/constants/config';
-import type { SearchType, SearchResponse } from '@/app/types';
+import type { SearchType, SearchResponse, SourceType } from '@/app/types';
 
 const SEARCH_API_URL = '/api/search';
 
 export function useSearch() {
+  const sourceType = useSearchStore((state) => state.sourceType);
   const {
     setLoading,
     setResults,
@@ -27,10 +29,11 @@ export function useSearch() {
     setAllResults([]);
     setTotalCount(0);
     setError(null);
-  }, [setResults, setAllResults, setTotalCount, setError]);
+    setCurrentPage(1);
+  }, [setResults, setAllResults, setTotalCount, setError, setCurrentPage]);
 
   const performSearch = useCallback(
-    async (query: string, searchType: SearchType, requestId: number, page: number = 1) => {
+    async (query: string, searchType: SearchType, requestId: number, page: number = 1, source: SourceType = 'all') => {
       const isInitial = page === 1;
       if (isInitial) {
         setLoading(true);
@@ -49,6 +52,7 @@ export function useSearch() {
             query,
             type: searchType,
             page,
+            source,
           }),
         });
 
@@ -62,6 +66,7 @@ export function useSearch() {
         if (isInitial) {
           setResults(data.items || []);
           setAllResults(data.items || []);
+          setCurrentPage(1);
         } else {
           appendResults(data.items || []);
           setCurrentPage(page);
@@ -111,17 +116,17 @@ export function useSearch() {
       }
 
       requestIdRef.current += 1;
-      debouncedSearchRef.current(trimmedQuery, searchType, requestIdRef.current, 1);
+      debouncedSearchRef.current(trimmedQuery, searchType, requestIdRef.current, 1, sourceType);
     },
-    [clearResults, setLoading]
+    [clearResults, setLoading, sourceType]
   );
 
   const loadMore = useCallback(
     (query: string, searchType: SearchType, page: number) => {
       requestIdRef.current += 1;
-      performSearch(query, searchType, requestIdRef.current, page);
+      performSearch(query, searchType, requestIdRef.current, page, sourceType);
     },
-    [performSearch]
+    [performSearch, sourceType]
   );
 
   return { fetchResults, loadMore };

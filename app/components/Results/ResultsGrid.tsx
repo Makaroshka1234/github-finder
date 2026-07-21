@@ -63,7 +63,7 @@ export function ResultsGrid({
       <ResultsHeader totalCount={totalCount} />
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {allResults.map((item) => (
-          <div key={item.id}>
+          <div key={`${item.source}-${item.id}`}>
             <ResultCard item={item} />
           </div>
         ))}

@@ -7,4 +7,5 @@ export interface User {
   public_repos: number;
   followers: number;
   html_url: string;
+  source?: 'github' | 'gitlab';
 }

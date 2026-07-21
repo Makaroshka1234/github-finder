@@ -3,6 +3,7 @@ import { useSearchStore } from '@/app/store/searchStore';
 export const useStoreActions = () => {
   const setQuery = useSearchStore((state) => state.setQuery);
   const setSearchType = useSearchStore((state) => state.setSearchType);
+  const setSourceType = useSearchStore((state) => state.setSourceType);
   const setResults = useSearchStore((state) => state.setResults);
   const setAllResults = useSearchStore((state) => state.setAllResults);
   const appendResults = useSearchStore((state) => state.appendResults);
@@ -16,6 +17,7 @@ export const useStoreActions = () => {
   return {
     setQuery,
     setSearchType,
+    setSourceType,
     setResults,
     setAllResults,
     appendResults,

@@ -5,6 +5,7 @@ export const SEARCH_CONFIG = {
   MIN_QUERY_LENGTH: 3,
   CACHE_TTL_SECONDS: 7200, // 2 hours
   GITHUB_API_BASE: 'https://api.github.com',
+  GITLAB_API_BASE: 'https://gitlab.com/api/v4',
 } as const;
 
 export const LOADING_STATES = {

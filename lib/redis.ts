@@ -1,20 +1,23 @@
-import { Redis } from '@upstash/redis';
+import Redis from 'ioredis';
 import { SEARCH_CONFIG } from '@/app/constants/config';
 
-export const redis = new Redis({
-  url: process.env.UPSTASH_REDIS_REST_URL!,
-  token: process.env.UPSTASH_REDIS_REST_TOKEN!,
+const redis = new Redis(process.env.REDIS_URL || 'redis://localhost:6379', {
+  retryStrategy: (times) => Math.min(times * 50, 2000),
+  maxRetriesPerRequest: null,
 });
 
-export function getCacheKey(query: string, type: string): string {
-  return `gh:${type}:${query.toLowerCase()}`;
+redis.on('error', (err) => console.error('[Redis] Connection error:', err));
+
+export function getCacheKey(query: string, type: string, source: string = 'gh'): string {
+  return `${source}:${type}:${query.toLowerCase()}`;
 }
 
-export async function getCache<T>(query: string, type: string): Promise<T | null> {
+export async function getCache<T>(query: string, type: string, source: string = 'gh'): Promise<T | null> {
   try {
-    const key = getCacheKey(query, type);
-    const data = await redis.get<T>(key);
-    return data ?? null;
+    const key = getCacheKey(query, type, source);
+    const data = await redis.get(key);
+    if (!data) return null;
+    return JSON.parse(data) as T;
   } catch (error) {
     console.error('Redis getCache error:', error);
     return null;
@@ -25,15 +28,24 @@ export async function setCache(
   query: string,
   type: string,
   data: any,
-  ttl: number = SEARCH_CONFIG.CACHE_TTL_SECONDS
+  ttl: number = SEARCH_CONFIG.CACHE_TTL_SECONDS,
+  source: string = 'gh'
 ): Promise<void> {
   try {
-    const key = getCacheKey(query, type);
-    console.log('[Redis] Setting cache key:', key, 'TTL:', ttl, 'size:', JSON.stringify(data).length);
-    await redis.set(key, JSON.stringify(data), { ex: ttl });
-    console.log('[Redis] ✅ Cache set successfully');
+    const key = getCacheKey(query, type, source);
+    const serialized = JSON.stringify(data);
+    await redis.setex(key, ttl, serialized);
   } catch (error) {
     console.error('[Redis] ❌ setCache error:', error);
+  }
+}
+
+export async function deleteCache(query: string, type: string, source: string = 'gh'): Promise<void> {
+  try {
+    const key = getCacheKey(query, type, source);
+    await redis.del(key);
+  } catch (error) {
+    console.error('[Redis] deleteCache error:', error);
   }
 }
 

@@ -1,12 +1,7 @@
 import { SEARCH_CONFIG } from '@/app/constants/config';
-import type { User } from '@/app/types';
+import type { User, SearchResponse } from '@/app/types';
 
 const GITHUB_TOKEN = process.env.GITHUB_TOKEN;
-
-export interface SearchResponse {
-  items: any[];
-  total_count: number;
-}
 
 export async function searchGitHub(
   query: string,
@@ -57,10 +52,11 @@ export async function searchGitHub(
 
     if (type === 'user' && data.items.length > 0) {
       const enrichedItems = await Promise.all(
-        data.items.map(async (user: User) => {
+        data.items.map(async (user) => {
           try {
+            const userItem = user as User;
             const userResponse = await fetch(
-              `${SEARCH_CONFIG.GITHUB_API_BASE}/users/${user.login}`,
+              `${SEARCH_CONFIG.GITHUB_API_BASE}/users/${userItem.login}`,
               {
                 method: 'GET',
                 headers: {
@@ -72,7 +68,7 @@ export async function searchGitHub(
             if (userResponse.ok) {
               const fullUser = await userResponse.json();
               return {
-                ...user,
+                ...(user as User),
                 public_repos: fullUser.public_repos,
                 followers: fullUser.followers,
                 bio: fullUser.bio,
@@ -80,7 +76,7 @@ export async function searchGitHub(
               };
             }
           } catch (error) {
-            console.error(`Failed to fetch user details for ${user.login}:`, error);
+            console.error(`Failed to fetch user details for ${(user as User).login}:`, error);
           }
           return user;
         })

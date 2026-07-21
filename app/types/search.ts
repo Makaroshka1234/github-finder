@@ -1,10 +1,12 @@
 import type { SearchResult } from './result';
 
 export type SearchType = 'user' | 'repo';
+export type SourceType = 'github' | 'gitlab' | 'all';
 
 export interface SearchState {
   query: string;
   searchType: SearchType;
+  sourceType: SourceType;
   results: SearchResult[];
   allResults: SearchResult[];
   isLoading: boolean;
@@ -17,6 +19,7 @@ export interface SearchState {
 export interface SearchActions {
   setQuery: (query: string) => void;
   setSearchType: (type: SearchType) => void;
+  setSourceType: (type: SourceType) => void;
   setResults: (results: SearchResult[]) => void;
   setAllResults: (results: SearchResult[]) => void;
   appendResults: (results: SearchResult[]) => void;
@@ -26,6 +29,7 @@ export interface SearchActions {
   setTotalCount: (count: number) => void;
   setCurrentPage: (page: number) => void;
   clear: () => void;
+  _hydrate?: () => void;
 }
 
 export type SearchStore = SearchState & SearchActions;
