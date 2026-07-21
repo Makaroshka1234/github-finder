@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { useSession } from 'next-auth/react';
 import { useFavoritesStore, type Favorite } from '@/app/store/favoritesStore';
 
@@ -20,6 +20,9 @@ export function FavoriteButton({
   const { data: session } = useSession();
   const { isFavorited, addFavorite, removeFavorite, favorites } = useFavoritesStore();
   const [isLoading, setIsLoading] = useState(false);
+  // Синхронний замок: disabled/isLoading оновлюються асинхронно й не встигають
+  // застосуватись за швидкого дабл-кліку — ref гарантує один запит за раз
+  const inFlightRef = useRef(false);
 
   const favoriteId = favorites.find(
     (f) => f.source === source && f.itemType === itemType && f.externalId === externalId
@@ -93,6 +96,10 @@ export function FavoriteButton({
       return;
     }
 
+    // Відсікаємо повторний клік до завершення поточного запиту (напр. temp→real свап)
+    if (inFlightRef.current) return;
+    inFlightRef.current = true;
+
     setIsLoading(true);
     try {
       if (isFav && favoriteId) {
@@ -101,6 +108,7 @@ export function FavoriteButton({
         await handleAdd();
       }
     } finally {
+      inFlightRef.current = false;
       setIsLoading(false);
     }
   };

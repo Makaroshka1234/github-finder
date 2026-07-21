@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef } from 'react';
+import { useCallback, useRef } from 'react';
 import { LoadingSkeletons } from './LoadingSkeletons';
 import { ResultsError } from './ResultsError';
 import { ResultsEmpty } from './ResultsEmpty';
@@ -35,11 +35,15 @@ export function ResultsGrid({
 }: ResultsGridProps) {
   const observerTarget = useRef<HTMLDivElement | null>(null);
 
+  const handleLoadMore = useCallback(() => {
+    loadMore(query, searchType, currentPage + 1);
+  }, [loadMore, query, searchType, currentPage]);
+
   useInfiniteScroll({
     targetRef: observerTarget,
     isLoading: isLoadingMore,
     hasMore: totalCount > allResults.length,
-    onLoad: () => loadMore(query, searchType, currentPage + 1),
+    onLoad: handleLoadMore,
   });
 
   if (isLoading) {
