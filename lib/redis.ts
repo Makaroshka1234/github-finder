@@ -56,3 +56,36 @@ export async function clearAllCache(): Promise<void> {
     console.error('Redis clearAllCache error:', error);
   }
 }
+
+export interface RateLimitResult {
+  success: boolean;
+  remaining: number;
+  limit: number;
+}
+
+/**
+ * Fixed-window rate limiter на Redis (INCR + EXPIRE).
+ * Перший запит у вікні ставить TTL; далі лічильник інкрементиться до ліміту.
+ * Fail-open: якщо Redis недоступний — пропускаємо (не блокуємо користувачів через збій кешу).
+ */
+export async function checkRateLimit(
+  identifier: string,
+  limit: number,
+  windowSeconds: number
+): Promise<RateLimitResult> {
+  const key = `ratelimit:${identifier}`;
+  try {
+    const count = await redis.incr(key);
+    if (count === 1) {
+      await redis.expire(key, windowSeconds);
+    }
+    return {
+      success: count <= limit,
+      remaining: Math.max(0, limit - count),
+      limit,
+    };
+  } catch (error) {
+    console.error('[Redis] rate limit error:', error);
+    return { success: true, remaining: limit, limit };
+  }
+}

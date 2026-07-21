@@ -25,9 +25,6 @@ export async function searchGitHub(
   url.searchParams.set('page', String(page));
   url.searchParams.set('sort', sort);
   url.searchParams.set('order', 'desc');
-  if (type === 'user') {
-    url.searchParams.set('state', 'open');
-  }
 
   try {
     const response = await fetch(url.toString(), {

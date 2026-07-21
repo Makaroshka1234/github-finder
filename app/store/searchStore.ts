@@ -1,5 +1,6 @@
 import { create } from 'zustand';
-import type { SearchType, SourceType, SearchState, SearchActions, SearchStore } from '@/app/types';
+import type { SearchState, SearchStore } from '@/app/types';
+import { SEARCH_CONFIG } from '@/app/constants/config';
 
 const initialState: SearchState = {
   query: '',
@@ -23,29 +24,31 @@ const getResetResultsState = () => ({
   isLoadingMore: false,
 });
 
-export const useSearchStore = create<SearchStore>((set, get) => {
+export const useSearchStore = create<SearchStore>((set) => {
   const saveToLocalStorage = (state: SearchState) => {
-    if (typeof window !== 'undefined') {
+    if (typeof window === 'undefined') return;
+    try {
+      // Персистимо лише параметри запиту — результати перефетчаться при поверненні
       localStorage.setItem(
         'search-store',
         JSON.stringify({
           query: state.query,
           searchType: state.searchType,
           sourceType: state.sourceType,
-          results: state.results,
-          allResults: state.allResults,
-          totalCount: state.totalCount,
-          currentPage: state.currentPage,
         })
       );
+    } catch (error) {
+      // QuotaExceededError за великого infinite-scroll — не валимо застосунок,
+      // просто перестаємо персистити цей стан
+      console.error('Failed to persist search state (storage quota?):', error);
     }
   };
 
   const setState = (updates: Partial<SearchState>) => {
-    set(updates);
     set((state) => {
-      saveToLocalStorage(state);
-      return state;
+      const next = { ...state, ...updates };
+      saveToLocalStorage(next);
+      return next;
     });
   };
 
@@ -62,9 +65,8 @@ export const useSearchStore = create<SearchStore>((set, get) => {
       set((state) => {
         const existingKeys = new Set(state.allResults.map((item) => `${item.source}-${item.id}`));
         const newResults = results.filter((item) => !existingKeys.has(`${item.source}-${item.id}`));
-        const updated = { allResults: [...state.allResults, ...newResults] };
-        saveToLocalStorage({ ...state, ...updated });
-        return updated;
+        // allResults не персиститься — свіжі сторінки не пишемо в localStorage
+        return { allResults: [...state.allResults, ...newResults] };
       }),
     setLoading: (isLoading) => setState({ isLoading }),
     setIsLoadingMore: (isLoadingMore) => setState({ isLoadingMore }),
@@ -85,14 +87,14 @@ export const useSearchStore = create<SearchStore>((set, get) => {
         const saved = localStorage.getItem('search-store');
         if (saved) {
           const parsed = JSON.parse(saved);
+          const query = parsed.query || initialState.query;
           set({
-            query: parsed.query || initialState.query,
+            query,
             searchType: parsed.searchType || initialState.searchType,
             sourceType: parsed.sourceType || initialState.sourceType,
-            results: parsed.results || initialState.results,
-            allResults: parsed.allResults || initialState.allResults,
-            totalCount: parsed.totalCount || initialState.totalCount,
-            currentPage: parsed.currentPage || initialState.currentPage,
+            // Результати не відновлюємо — SearchBar автоматично перефетчить сторінку 1.
+            // Одразу вмикаємо лоадер, щоб не блимнув порожній стан до завершення фетчу.
+            isLoading: query.trim().length >= SEARCH_CONFIG.MIN_QUERY_LENGTH,
           });
         }
       } catch (error) {

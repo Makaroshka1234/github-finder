@@ -1,12 +1,41 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { searchGitHub } from '@/lib/github';
 import { searchGitLab } from '@/lib/gitlab';
-import { getCache, setCache, getCacheKey } from '@/lib/redis';
+import { getCache, setCache, getCacheKey, checkRateLimit } from '@/lib/redis';
 import { SEARCH_CONFIG } from '@/app/constants/config';
 import type { SearchResponse } from '@/app/types';
 
+// Результат одного джерела: успішна відповідь або заглушка з помилкою (з catch)
+type SourceResult = SearchResponse & { error?: string; source?: string };
+
+// Ліміт: 30 запитів на IP за 60 секунд
+const RATE_LIMIT = 30;
+const RATE_WINDOW_SECONDS = 60;
+
+function getClientIp(request: NextRequest): string {
+  const forwarded = request.headers.get('x-forwarded-for');
+  if (forwarded) return forwarded.split(',')[0].trim();
+  return request.headers.get('x-real-ip') || 'unknown';
+}
+
 export async function POST(request: NextRequest) {
   try {
+    const ip = getClientIp(request);
+    const rate = await checkRateLimit(`search:${ip}`, RATE_LIMIT, RATE_WINDOW_SECONDS);
+    if (!rate.success) {
+      return NextResponse.json(
+        { error: 'Too many requests. Please slow down.' },
+        {
+          status: 429,
+          headers: {
+            'Retry-After': String(RATE_WINDOW_SECONDS),
+            'X-RateLimit-Limit': String(rate.limit),
+            'X-RateLimit-Remaining': String(rate.remaining),
+          },
+        }
+      );
+    }
+
     const body = await request.json();
     const { query, type, page = 1, source = 'all' } = body;
 
@@ -24,7 +53,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    
+
     if (source !== 'all') {
       const cacheKey = page === 1 ? getCacheKey(query, type, source) : null;
 
@@ -55,23 +84,23 @@ export async function POST(request: NextRequest) {
     const aggregateKey = page === 1 ? getCacheKey(query, type, 'all') : null;
 
     if (aggregateKey) {
-      const cachedAggregate = await getCache<any>(query, type, 'all');
+      const cachedAggregate = await getCache<SearchResponse>(query, type, 'all');
       if (cachedAggregate) {
         return NextResponse.json(cachedAggregate, { headers: { 'x-cache': 'HIT' } });
       }
     }
 
     // Fetch from all sources in parallel
-    const results = await Promise.all([
+    const results: SourceResult[] = await Promise.all([
       searchGitHub(query, type, page)
-        .catch((err: Error) => ({
+        .catch((err: Error): SourceResult => ({
           items: [],
           total_count: 0,
           error: err.message,
           source: 'github',
         })),
       searchGitLab(query, type, page)
-        .catch((err: Error) => ({
+        .catch((err: Error): SourceResult => ({
           items: [],
           total_count: 0,
           error: err.message,
@@ -80,9 +109,11 @@ export async function POST(request: NextRequest) {
     ]);
 
     // Aggregate results
-    const allItems = results.flatMap((r: any) => r.items || []);
-    const totalCount = results.reduce((sum: number, r: any) => sum + (r.total_count || 0), 0);
-    const errors = results.filter((r: any) => r.error).map((r: any) => ({ source: r.source, error: r.error }));
+    const allItems = results.flatMap((r) => r.items || []);
+    const totalCount = results.reduce((sum, r) => sum + (r.total_count || 0), 0);
+    const errors = results
+      .filter((r) => r.error)
+      .map((r) => ({ source: r.source, error: r.error }));
 
     const aggregatedResult = {
       items: allItems,
