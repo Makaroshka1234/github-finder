@@ -11,38 +11,39 @@ import { SEARCH_CONFIG } from '@/app/constants/config';
 import type { SearchType, SearchResult } from '@/app/types';
 
 interface ResultsGridProps {
-  allResults: SearchResult[];
+  results: SearchResult[];
   isLoading: boolean;
-  isLoadingMore: boolean;
+  isFetchingNextPage: boolean;
   error: string | null;
   searchType: SearchType;
   query: string;
   totalCount: number;
-  currentPage: number;
-  loadMore: (query: string, searchType: SearchType, page: number) => void;
+  hasNextPage: boolean;
+  fetchNextPage: () => void;
 }
 
 export function ResultsGrid({
-  allResults,
+  results,
   isLoading,
-  isLoadingMore,
+  isFetchingNextPage,
   error,
   searchType,
   query,
   totalCount,
-  currentPage,
-  loadMore,
+  hasNextPage,
+  fetchNextPage,
 }: ResultsGridProps) {
   const observerTarget = useRef<HTMLDivElement | null>(null);
 
+  // Номер сторінки веде сам useInfiniteQuery через getNextPageParam
   const handleLoadMore = useCallback(() => {
-    loadMore(query, searchType, currentPage + 1);
-  }, [loadMore, query, searchType, currentPage]);
+    fetchNextPage();
+  }, [fetchNextPage]);
 
   useInfiniteScroll({
     targetRef: observerTarget,
-    isLoading: isLoadingMore,
-    hasMore: totalCount > allResults.length,
+    isLoading: isFetchingNextPage,
+    hasMore: hasNextPage,
     onLoad: handleLoadMore,
   });
 
@@ -58,7 +59,7 @@ export function ResultsGrid({
     return null;
   }
 
-  if (allResults.length === 0) {
+  if (results.length === 0) {
     return <ResultsEmpty searchType={searchType} />;
   }
 
@@ -66,13 +67,13 @@ export function ResultsGrid({
     <div>
       <ResultsHeader totalCount={totalCount} />
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {allResults.map((item) => (
+        {results.map((item) => (
           <div key={`${item.source}-${item.id}`}>
             <ResultCard item={item} />
           </div>
         ))}
       </div>
-      {isLoadingMore && <LoadingSkeletons />}
+      {isFetchingNextPage && <LoadingSkeletons />}
       <div ref={observerTarget} />
     </div>
   );

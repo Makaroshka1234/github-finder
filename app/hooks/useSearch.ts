@@ -1,133 +1,76 @@
 'use client';
 
-import { useCallback, useEffect, useRef } from 'react';
-import { debounce } from 'lodash';
+import { useInfiniteQuery, keepPreviousData, type InfiniteData } from '@tanstack/react-query';
 import { useSearchStore } from '@/app/store/searchStore';
-import { useStoreActions } from './useStoreActions';
+import { useDebouncedValue } from './useDebouncedValue';
 import { SEARCH_CONFIG } from '@/app/constants/config';
-import type { SearchType, SearchResponse, SourceType } from '@/app/types';
+import { searchInfiniteQuery } from '@/app/lib/api';
+import type { SearchResponse, SearchResult } from '@/app/types';
 
-const SEARCH_API_URL = '/api/search';
+interface SelectedSearch {
+  results: SearchResult[];
+  totalCount: number;
+}
+
+/**
+ * Модульного рівня навмисно: інлайновий select пересоздавався б щорендера
+ * і ламав мемоїзацію TanStack, ганяючи дедуплікацію на кожен рендер.
+ *
+ * Дедуп потрібен для source='all' — GitHub і GitLab пагінуються незалежно,
+ * тож той самий елемент може прийти в різних сторінках.
+ */
+function selectSearchResults(data: InfiniteData<SearchResponse>): SelectedSearch {
+  const seen = new Set<string>();
+  const results: SearchResult[] = [];
+
+  for (const page of data.pages) {
+    for (const item of page.items) {
+      const key = `${item.source}-${item.id}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      results.push(item);
+    }
+  }
+
+  return { results, totalCount: data.pages[0]?.total_count ?? 0 };
+}
 
 export function useSearch() {
+  const query = useSearchStore((state) => state.query);
+  const searchType = useSearchStore((state) => state.searchType);
   const sourceType = useSearchStore((state) => state.sourceType);
+
+  const debouncedQuery = useDebouncedValue(query, SEARCH_CONFIG.DEBOUNCE_MS);
+  const trimmedQuery = debouncedQuery.trim();
+
   const {
-    setLoading,
-    setResults,
-    setAllResults,
-    appendResults,
-    setError,
-    setTotalCount,
-    setCurrentPage,
-    setIsLoadingMore,
-  } = useStoreActions();
+    data,
+    isLoading,
+    isFetchingNextPage,
+    error,
+    fetchNextPage,
+    hasNextPage,
+  } = useInfiniteQuery({
+    ...searchInfiniteQuery(searchType, sourceType, trimmedQuery),
+    enabled: trimmedQuery.length >= SEARCH_CONFIG.MIN_QUERY_LENGTH,
+    // Старі результати лишаються на екрані, поки вантажаться нові —
+    // без блимання скелетонів на кожній літері
+    placeholderData: keepPreviousData,
+    // Бекенд і так тримає Redis-кеш 2 год; повернення до попереднього
+    // запиту в межах цього вікна віддається миттєво з памʼяті
+    staleTime: 5 * 60 * 1000,
+    select: selectSearchResults,
+  });
 
-  const requestIdRef = useRef(0);
-
-  const clearResults = useCallback(() => {
-    setResults([]);
-    setAllResults([]);
-    setTotalCount(0);
-    setError(null);
-    setCurrentPage(1);
-  }, [setResults, setAllResults, setTotalCount, setError, setCurrentPage]);
-
-  const performSearch = useCallback(
-    async (query: string, searchType: SearchType, requestId: number, page: number = 1, source: SourceType = 'all') => {
-      const isInitial = page === 1;
-      if (isInitial) {
-        setLoading(true);
-      } else {
-        setIsLoadingMore(true);
-      }
-      setError(null);
-
-      try {
-        const response = await fetch(SEARCH_API_URL, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            query,
-            type: searchType,
-            page,
-            source,
-          }),
-        });
-
-        if (!response.ok) {
-          throw new Error(`Помилка запиту: ${response.status} ${response.statusText}`);
-        }
-
-        const data: SearchResponse = await response.json();
-        if (requestIdRef.current !== requestId) return;
-
-        if (isInitial) {
-          setResults(data.items || []);
-          setAllResults(data.items || []);
-          setCurrentPage(1);
-        } else {
-          appendResults(data.items || []);
-          setCurrentPage(page);
-        }
-        setTotalCount(data.total_count || 0);
-      } catch (error) {
-        if (requestIdRef.current !== requestId) return;
-
-        const errorMessage = error instanceof Error ? error.message : 'Невідома помилка';
-        setError(errorMessage);
-        if (isInitial) {
-          clearResults();
-        }
-        setTotalCount(0);
-      } finally {
-        if (requestIdRef.current === requestId) {
-          if (isInitial) {
-            setLoading(false);
-          } else {
-            setIsLoadingMore(false);
-          }
-        }
-      }
-    },
-    [setLoading, setError, setResults, setAllResults, appendResults, setTotalCount, setCurrentPage, setIsLoadingMore, clearResults]
-  );
-
-  const debouncedSearchRef = useRef<any>(null);
-
-  useEffect(() => {
-    debouncedSearchRef.current = debounce(performSearch, SEARCH_CONFIG.DEBOUNCE_MS);
-
-    return () => {
-      debouncedSearchRef.current?.cancel();
-    };
-  }, [performSearch]);
-
-  const fetchResults = useCallback(
-    (query: string, searchType: SearchType) => {
-      const trimmedQuery = query.trim();
-
-      if (trimmedQuery.length < SEARCH_CONFIG.MIN_QUERY_LENGTH) {
-        debouncedSearchRef.current?.cancel();
-        clearResults();
-        setLoading(false);
-        return;
-      }
-
-      requestIdRef.current += 1;
-      debouncedSearchRef.current(trimmedQuery, searchType, requestIdRef.current, 1, sourceType);
-    },
-    [clearResults, setLoading, sourceType]
-  );
-
-  const loadMore = useCallback(
-    (query: string, searchType: SearchType, page: number) => {
-      requestIdRef.current += 1;
-      performSearch(query, searchType, requestIdRef.current, page, sourceType);
-    },
-    [performSearch, sourceType]
-  );
-
-  return { fetchResults, loadMore };
+  return {
+    results: data?.results ?? [],
+    totalCount: data?.totalCount ?? 0,
+    isLoading,
+    isFetchingNextPage,
+    // ResultsError чекає рядок; ApiError несе текст { error } з роута,
+    // тож користувач бачить "Too many requests", а не "429"
+    error: error ? error.message : null,
+    fetchNextPage,
+    hasNextPage,
+  };
 }

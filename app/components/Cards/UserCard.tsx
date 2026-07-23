@@ -1,5 +1,6 @@
 'use client';
 
+import Image from 'next/image';
 import type { User } from '@/app/types';
 import { CardLayout } from './CardLayout';
 import { FavoriteButton } from './FavoriteButton';
@@ -11,21 +12,26 @@ interface UserCardProps {
 export function UserCard({ user }: UserCardProps) {
   const { avatar_url, login, bio, location, public_repos, followers, html_url, source = 'github', id } = user;
 
+  const detailUrl = `/user/${source}/${login}`;
+
   return (
     <CardLayout
-      url={html_url}
+      detailUrl={detailUrl}
+      externalUrl={html_url}
       source={source}
       avatar={
         avatar_url && (
-          <img
+          <Image
             src={avatar_url}
             alt={login}
+            width={64}
+            height={64}
             className="w-16 h-16 rounded-full"
           />
         )
       }
       header={
-        <h3 className="text-lg font-semibold text-gray-900">
+        <h3 className="text-lg font-semibold text-gray-900 overflow-x-hidden">
           {login}
         </h3>
       }
@@ -48,7 +54,7 @@ export function UserCard({ user }: UserCardProps) {
           <div className="flex justify-around">
             <div>
               <div className="font-semibold text-gray-900">
-                {public_repos}
+                {public_repos ?? '—'}
               </div>
               <div className="text-xs text-gray-500">Repositories</div>
             </div>
@@ -73,6 +79,7 @@ export function UserCard({ user }: UserCardProps) {
             location,
             url: html_url,
             followers,
+            public_repos,
           }}
         />
       }

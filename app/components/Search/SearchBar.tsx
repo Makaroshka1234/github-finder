@@ -1,19 +1,13 @@
 'use client';
 
-import { useEffect } from 'react';
 import { useSearchStore } from '@/app/store/searchStore';
 import { useStoreActions } from '@/app/hooks/useStoreActions';
-import { useSearch } from '@/app/hooks/useSearch';
 
+// Ефект-тригер фетчу тут більше не потрібен: запит запускає зміна queryKey
+// в useSearch, а сюди лишається чистий контрольований інпут.
 export function SearchBar() {
   const query = useSearchStore((state) => state.query);
-  const searchType = useSearchStore((state) => state.searchType);
   const { setQuery, clear } = useStoreActions();
-  const { fetchResults } = useSearch();
-
-  useEffect(() => {
-    fetchResults(query, searchType);
-  }, [query, searchType, fetchResults]);
 
   return (
     <div className="relative w-full">

@@ -7,14 +7,16 @@ import { SEARCH_CONFIG } from "./constants/config";
 
 export default function Home() {
   const query = useSearchStore((state) => state.query);
-  const allResults = useSearchStore((state) => state.allResults);
-  const isLoading = useSearchStore((state) => state.isLoading);
-  const isLoadingMore = useSearchStore((state) => state.isLoadingMore);
-  const error = useSearchStore((state) => state.error);
   const searchType = useSearchStore((state) => state.searchType);
-  const totalCount = useSearchStore((state) => state.totalCount);
-  const currentPage = useSearchStore((state) => state.currentPage);
-  const { loadMore } = useSearch();
+  const {
+    results,
+    totalCount,
+    isLoading,
+    isFetchingNextPage,
+    error,
+    fetchNextPage,
+    hasNextPage,
+  } = useSearch();
 
   const isSearching = query.trim().length >= SEARCH_CONFIG.MIN_QUERY_LENGTH;
 
@@ -34,15 +36,15 @@ export default function Home() {
 
       {isSearching && (
         <ResultsGrid
-          allResults={allResults}
+          results={results}
           isLoading={isLoading}
-          isLoadingMore={isLoadingMore}
+          isFetchingNextPage={isFetchingNextPage}
           error={error}
           searchType={searchType}
           query={query}
           totalCount={totalCount}
-          currentPage={currentPage}
-          loadMore={loadMore}
+          hasNextPage={hasNextPage}
+          fetchNextPage={fetchNextPage}
         />
       )}
     </main>

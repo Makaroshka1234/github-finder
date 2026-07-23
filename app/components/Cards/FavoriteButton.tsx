@@ -1,14 +1,15 @@
 'use client';
 
-import { useRef, useState } from 'react';
-import { useSession } from 'next-auth/react';
-import { useFavoritesStore, type Favorite } from '@/app/store/favoritesStore';
+import { useRef } from 'react';
+import { useSession, signIn } from 'next-auth/react';
+import { useFavorites, useAddFavorite, useRemoveFavorite } from '@/app/hooks/useFavorites';
+import type { SnapshotData } from '@/app/types';
 
 interface FavoriteButtonProps {
   source: 'github' | 'gitlab';
   itemType: 'repository' | 'user';
   externalId: string;
-  snapshotData: Record<string, any>;
+  snapshotData: SnapshotData;
 }
 
 export function FavoriteButton({
@@ -18,10 +19,12 @@ export function FavoriteButton({
   snapshotData,
 }: FavoriteButtonProps) {
   const { data: session } = useSession();
-  const { isFavorited, addFavorite, removeFavorite, favorites } = useFavoritesStore();
-  const [isLoading, setIsLoading] = useState(false);
-  // Синхронний замок: disabled/isLoading оновлюються асинхронно й не встигають
-  // застосуватись за швидкого дабл-кліку — ref гарантує один запит за раз
+  const { favorites, isFavorited } = useFavorites();
+  const addFavorite = useAddFavorite();
+  const removeFavorite = useRemoveFavorite();
+
+  // Синхронний замок: isPending оновлюється асинхронно й не встигає
+  // застосуватись за швидкого дабл-кліку, а мутації самі не дедуплікуються
   const inFlightRef = useRef(false);
 
   const favoriteId = favorites.find(
@@ -29,87 +32,28 @@ export function FavoriteButton({
   )?.id;
 
   const isFav = isFavorited(source, itemType, externalId);
-
-  const handleAdd = async () => {
-    const tempId = crypto.randomUUID();
-    const optimistic: Favorite = {
-      id: tempId,
-      userId: '',
-      source,
-      itemType,
-      externalId,
-      snapshotData,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    };
-
-    // Optimistic add
-    addFavorite(optimistic);
-
-    try {
-      const res = await fetch('/api/favorites', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ source, itemType, externalId, snapshotData }),
-      });
-
-      if (res.ok) {
-        const data = await res.json();
-        // Replace temp entry with real server record
-        removeFavorite(tempId);
-        addFavorite(data);
-      } else {
-        // Rollback on non-OK response
-        removeFavorite(tempId);
-      }
-    } catch (error) {
-      console.error('Failed to add favorite:', error);
-      // Rollback on network error
-      removeFavorite(tempId);
-    }
-  };
-
-  const handleRemove = async (id: string) => {
-    const previous = favorites.find((f) => f.id === id);
-
-    // Optimistic remove
-    removeFavorite(id);
-
-    try {
-      const res = await fetch(`/api/favorites/${id}`, { method: 'DELETE' });
-      if (!res.ok && previous) {
-        // Rollback on non-OK response
-        addFavorite(previous);
-      }
-    } catch (error) {
-      console.error('Failed to remove favorite:', error);
-      // Rollback on network error
-      if (previous) {
-        addFavorite(previous);
-      }
-    }
-  };
+  const isLoading = addFavorite.isPending || removeFavorite.isPending;
 
   const handleToggle = async () => {
     if (!session) {
-      alert('Будь ласка, авторизуйтесь');
+      // Неавторизований — ведемо на GitHub OAuth замість блокуючого alert
+      signIn('github');
       return;
     }
 
-    // Відсікаємо повторний клік до завершення поточного запиту (напр. temp→real свап)
     if (inFlightRef.current) return;
     inFlightRef.current = true;
 
-    setIsLoading(true);
     try {
       if (isFav && favoriteId) {
-        await handleRemove(favoriteId);
+        await removeFavorite.mutateAsync(favoriteId);
       } else {
-        await handleAdd();
+        await addFavorite.mutateAsync({ source, itemType, externalId, snapshotData });
       }
+    } catch {
+      // Відкат уже зробив onError мутації
     } finally {
       inFlightRef.current = false;
-      setIsLoading(false);
     }
   };
 

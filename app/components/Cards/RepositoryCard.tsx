@@ -1,8 +1,10 @@
 'use client';
 
+import Image from 'next/image';
 import type { Repository } from '@/app/types';
 import { CardLayout } from './CardLayout';
 import { FavoriteButton } from './FavoriteButton';
+import { formatNumber } from '@/app/lib/format';
 
 interface RepositoryCardProps {
   repository: Repository;
@@ -11,15 +13,20 @@ interface RepositoryCardProps {
 export function RepositoryCard({ repository }: RepositoryCardProps) {
   const { owner, name, description, language, stargazers_count, forks_count, html_url, source = 'github', id } = repository;
 
+  const detailUrl = `/repository/${source}/${owner.login}/${name}`;
+
   return (
     <CardLayout
-      url={html_url}
+      detailUrl={detailUrl}
+      externalUrl={html_url}
       source={source}
       avatar={
         owner.avatar_url && (
-          <img
+          <Image
             src={owner.avatar_url}
             alt={owner.login}
+            width={48}
+            height={48}
             className="w-12 h-12 rounded-full shrink-0"
           />
         )
@@ -43,8 +50,8 @@ export function RepositoryCard({ repository }: RepositoryCardProps) {
       }
       footer={
         <div className="flex gap-4 text-sm text-gray-600">
-          <span>⭐ {stargazers_count.toLocaleString()}</span>
-          <span>🍴 {forks_count.toLocaleString()}</span>
+          <span>⭐ {formatNumber(stargazers_count)}</span>
+          <span>🍴 {formatNumber(forks_count)}</span>
           {language && <span>💾 {language}</span>}
         </div>
       }

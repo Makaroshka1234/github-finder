@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   postgres:
     image: postgres:16-alpine
@@ -12,7 +10,14 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ['CMD-SHELL', 'pg_isready -U ${POSTGRES_USER:-github_finder}']
+      # -d обовʼязковий: без нього pg_isready бере назву БД = імені користувача
+      # (github_finder), а вона не існує — сервер відповідає, healthcheck проходить,
+      # але кожні 10с у лог сиплеться FATAL: database "github_finder" does not exist
+      test:
+        [
+          'CMD-SHELL',
+          'pg_isready -U ${POSTGRES_USER:-github_finder} -d ${POSTGRES_DB:-github_finder_db}',
+        ]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -50,6 +55,8 @@ services:
     volumes:
       - .:/app
       - /app/node_modules
+      # .next-кеш тримаємо в контейнері, щоб не корумпувати його спільним доступом із хостом
+      - /app/.next
     depends_on:
       postgres:
         condition: service_healthy

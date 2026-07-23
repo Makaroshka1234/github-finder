@@ -1,17 +1,22 @@
 "use client";
 
 import { useSession, signIn } from "next-auth/react";
-import { useFavoritesStore } from "@/app/store/favoritesStore";
+import { useFavorites } from "@/app/hooks/useFavorites";
 import { RepositoryCard } from "@/app/components/Cards/RepositoryCard";
 import { UserCard } from "@/app/components/Cards/UserCard";
 import { ItemGrid } from "@/app/components/Cards/ItemGrid";
-import type { Repository, User } from "@/app/types";
+import type {
+  Repository,
+  User,
+  RepositorySnapshot,
+  UserSnapshot,
+} from "@/app/types";
 
 export default function FavoritesPage() {
   const { status } = useSession();
-  const { favorites, isLoaded } = useFavoritesStore();
+  const { favorites, isLoading } = useFavorites();
 
-  if (status === "loading" || (status === "authenticated" && !isLoaded)) {
+  if (status === "loading" || isLoading) {
     return (
       <div className="flex justify-center items-center min-h-screen">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
@@ -41,40 +46,42 @@ export default function FavoritesPage() {
 
   const repositories = favorites
     .filter((f) => f.itemType === "repository")
-    .map(
-      (f) =>
-        ({
-          id: parseInt(f.externalId) || 0,
-          name: f.snapshotData.name,
-          owner: {
-            login: f.snapshotData.owner,
-            avatar_url: "",
-          },
-          description: f.snapshotData.description,
-          html_url: f.snapshotData.url,
-          stargazers_count: f.snapshotData.stars || 0,
-          forks_count: 0,
-          language: null,
-          source: f.source,
-        }) as Repository,
-    );
+    .map((f) => {
+      const snap = f.snapshotData as RepositorySnapshot;
+      return {
+        id: parseInt(f.externalId) || 0,
+        name: snap.name,
+        owner: {
+          login: snap.owner,
+          avatar_url: "",
+        },
+        description: snap.description,
+        html_url: snap.url,
+        stargazers_count: snap.stars || 0,
+        forks_count: 0,
+        language: null,
+        source: f.source,
+      } as Repository;
+    });
 
   const users = favorites
     .filter((f) => f.itemType === "user")
-    .map(
-      (f) =>
-        ({
-          id: parseInt(f.externalId) || 0,
-          login: f.snapshotData.login,
-          avatar_url: f.snapshotData.avatar_url,
-          bio: f.snapshotData.bio,
-          location: f.snapshotData.location,
-          public_repos: 0,
-          followers: f.snapshotData.followers || 0,
-          html_url: f.snapshotData.url,
-          source: f.source,
-        }) as User,
-    );
+    .map((f) => {
+      const snap = f.snapshotData as UserSnapshot;
+      return {
+        id: parseInt(f.externalId) || 0,
+        login: snap.login,
+        avatar_url: snap.avatar_url,
+        bio: snap.bio,
+        location: snap.location,
+        // Без `|| 0`: старі знімки не мають поля, і фабрикований нуль
+        // не лише бреше в UI, а й записується назад при ре-фаворитингу
+        public_repos: snap.public_repos,
+        followers: snap.followers || 0,
+        html_url: snap.url,
+        source: f.source,
+      } as User;
+    });
 
   return (
     <div className="flex-1 max-w-full px-4 py-8">

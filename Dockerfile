@@ -4,7 +4,9 @@ WORKDIR /app
 
 COPY package.json package-lock.json ./
 
-RUN npm ci
+# --ignore-scripts: postinstall (prisma generate) впаде тут, бо prisma/schema.prisma
+# ще не скопійована. Клієнт генерується нижче, після COPY . .
+RUN npm ci --ignore-scripts
 
 COPY . .
 
