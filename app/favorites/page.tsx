@@ -74,8 +74,6 @@ export default function FavoritesPage() {
         avatar_url: snap.avatar_url,
         bio: snap.bio,
         location: snap.location,
-        // Без `|| 0`: старі знімки не мають поля, і фабрикований нуль
-        // не лише бреше в UI, а й записується назад при ре-фаворитингу
         public_repos: snap.public_repos,
         followers: snap.followers || 0,
         html_url: snap.url,

@@ -6,6 +6,10 @@ import { getCache, setCache } from '@/lib/redis';
 import type { RepositoryDetail, UserDetail, SourceType } from '@/app/types';
 
 const CACHE_TTL = 60 * 60; // 1 година
+// GitHub рахує commit-статистику асинхронно (202 Accepted, повертає пустий масив,
+// поки не порахує). Якщо кешувати цей "ще рахую" стан на годину, юзер застрягає
+// на "Computing statistics…" аж до спливання кешу, навіть коли GitHub уже готовий.
+const COMPUTING_STATS_CACHE_TTL = 30; // секунд
 
 /** `cached` потрібен роутам для заголовка x-cache */
 export interface DetailResult<T> {
@@ -34,7 +38,13 @@ export async function loadRepositoryDetail(
       ? await getGitHubRepoDetail(owner, name)
       : await getGitLabRepoDetail(`${owner}/${name}`);
 
-  await setCache(cacheKey, 'repository', data, CACHE_TTL, source);
+  // Та сама евристика, що й у RepositoryDetailView для тексту "Computing…":
+  // порожній commitActivity у GitHub означає "статистика ще рахується", а не
+  // "комітів немає" — GitLab такого нюансу не має, там порожньо завжди по-справжньому.
+  const stillComputingStats = source === 'github' && data.commitActivity.length === 0;
+  const ttl = stillComputingStats ? COMPUTING_STATS_CACHE_TTL : CACHE_TTL;
+
+  await setCache(cacheKey, 'repository', data, ttl, source);
 
   return { data, cached: false };
 }

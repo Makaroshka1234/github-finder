@@ -5,4 +5,4 @@ export type {
   DetailAction,
   DetailChart,
   DetailInfoItem,
-} from './DetailLayout';
+} from './types';

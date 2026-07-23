@@ -1,9 +1,9 @@
 'use client';
 
-import Image from 'next/image';
 import type { User } from '@/app/types';
 import { CardLayout } from './CardLayout';
 import { FavoriteButton } from './FavoriteButton';
+import { Avatar } from '@/app/components/UI';
 
 interface UserCardProps {
   user: User;
@@ -19,17 +19,7 @@ export function UserCard({ user }: UserCardProps) {
       detailUrl={detailUrl}
       externalUrl={html_url}
       source={source}
-      avatar={
-        avatar_url && (
-          <Image
-            src={avatar_url}
-            alt={login}
-            width={64}
-            height={64}
-            className="w-16 h-16 rounded-full"
-          />
-        )
-      }
+      avatar={<Avatar src={avatar_url} alt={login} size={64} className="w-16 h-16" />}
       header={
         <h3 className="text-lg font-semibold text-gray-900 overflow-x-hidden">
           {login}

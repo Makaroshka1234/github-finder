@@ -129,6 +129,17 @@ export function repositoryDetailQuery(source: string, owner: string, name: strin
   return queryOptions({
     queryKey: queryKeys.repositoryDetail(source, owner, name),
     queryFn: () => getRepositoryDetail(source, owner, name),
+    // GitHub рахує commit-статистику асинхронно (202 → пустий масив, поки не порахує).
+    // Поки чекаємо — перепитуємо кожні 30с (стільки ж живе "ще рахується" запис у
+    // нашому Redis-кеші, див. COMPUTING_STATS_CACHE_TTL у app/lib/detailData.ts,
+    // інакше перші кілька опитувань просто отримали б той самий кеш-хіт з бекенду).
+    // Здаємось після 5 спроб, щоб не довбати нескінченно, якщо GitHub так і не порахує.
+    refetchInterval: (query) => {
+      const data = query.state.data;
+      const stillComputing = source === 'github' && data && data.commitActivity.length === 0;
+      if (!stillComputing || query.state.dataUpdateCount >= 5) return false;
+      return 30_000;
+    },
   });
 }
 

@@ -1,9 +1,9 @@
 'use client';
 
-import Image from 'next/image';
 import type { Repository } from '@/app/types';
 import { CardLayout } from './CardLayout';
 import { FavoriteButton } from './FavoriteButton';
+import { Avatar } from '@/app/components/UI';
 import { formatNumber } from '@/app/lib/format';
 
 interface RepositoryCardProps {
@@ -20,17 +20,7 @@ export function RepositoryCard({ repository }: RepositoryCardProps) {
       detailUrl={detailUrl}
       externalUrl={html_url}
       source={source}
-      avatar={
-        owner.avatar_url && (
-          <Image
-            src={owner.avatar_url}
-            alt={owner.login}
-            width={48}
-            height={48}
-            className="w-12 h-12 rounded-full shrink-0"
-          />
-        )
-      }
+      avatar={<Avatar src={owner.avatar_url} alt={owner.login} size={48} className="w-12 h-12 shrink-0" />}
       header={
         <div className="flex-1 min-w-0">
           <h3 className="font-semibold text-gray-900 truncate">

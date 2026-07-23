@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 import { ReactNode } from 'react';
 import { getSourceLabel } from '@/app/constants/sourceLabels';
 import type { SourceType } from '@/app/types';
@@ -38,6 +39,11 @@ export function CardLayout({
       ? 'absolute top-4 left-1/2 -translate-x-1/2'
       : 'absolute top-4 left-4';
 
+  // Картку рендерять лише дві сторінки (/ і /favorites) — див. useBackNavigation.
+  // Джерело дописуємо самі, а не вгадуємо його на detail-сторінці заднім числом.
+  const pathname = usePathname();
+  const from = pathname.startsWith('/favorites') ? 'favorites' : 'search';
+
   // Вибери, яку URL використовувати для внутрішньої навігації
   const internalUrl = detailUrl || url;
   // Зовнішня URL (за вмовчанням — url, якщо externalUrl не задана)
@@ -74,7 +80,7 @@ export function CardLayout({
 
       {internalUrl && internalUrl.startsWith('/') ? (
         // Внутрішня ланка (Next.js Link)
-        <Link href={internalUrl} className="block">
+        <Link href={`${internalUrl}?from=${from}`} className="block">
           {contentElement}
         </Link>
       ) : (

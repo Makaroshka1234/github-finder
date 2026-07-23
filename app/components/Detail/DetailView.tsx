@@ -1,7 +1,8 @@
 'use client';
 
 import { useQuery, type UseQueryOptions } from '@tanstack/react-query';
-import { DetailLayout, type DetailConfig } from './DetailLayout';
+import { DetailLayout } from './DetailLayout';
+import type { DetailConfig } from './types';
 
 interface DetailViewProps<T> {
   /** Опції з @/app/lib/api — key і fetch живуть там, не тут */

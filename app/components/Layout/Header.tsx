@@ -1,8 +1,8 @@
 'use client';
 
 import Link from 'next/link';
-import Image from 'next/image';
 import { useSession, signIn, signOut } from 'next-auth/react';
+import { Avatar } from '@/app/components/UI';
 
 export function Header() {
   const { data: session, status } = useSession();
@@ -26,15 +26,7 @@ export function Header() {
             <div className="w-8 h-8 bg-gray-200 rounded-full animate-pulse" />
           ) : session ? (
             <div className="flex items-center gap-4">
-              {session.user?.image && (
-                <Image
-                  src={session.user.image}
-                  alt={session.user.name || 'User'}
-                  width={32}
-                  height={32}
-                  className="w-8 h-8 rounded-full"
-                />
-              )}
+              <Avatar src={session.user?.image} alt={session.user?.name || 'User'} size={32} className="w-8 h-8" />
               <span className="text-sm text-gray-600">{session.user?.name}</span>
               <Link
                 href="/favorites"
